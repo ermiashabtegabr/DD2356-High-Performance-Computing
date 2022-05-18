@@ -36,3 +36,9 @@ pi_binary:
 	cc pi_binary.c -o pi_binary
 clean_binary:
 	rm pi_binary
+
+linear_non:
+	cc pi_linear_non_blocking.c -o pi_linear_non_blocking
+clean_linear_non:
+	rm pi_linear_non_blocking
+
