@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-def benchmark(filename, title):
+def benchmark_ping_pong(filename, title, folder):
     # reading from file
     df = pd.read_csv(filename, sep="\t", header=None)
     message_size = df[0]
@@ -13,11 +13,11 @@ def benchmark(filename, title):
     # plotting
     plt.scatter(message_size, same_node, label="Intra-node")
     plt.scatter(message_size, different_nodes, label="Inter-node")
-    plt.title(f"Ping pong benchmark for {title} communication")
-    plt.ylabel("Time")
+    plt.title(f"Ping pong benchmark for pi {title} ")
+    plt.ylabel("Time (sec)")
     plt.xlabel("Message Size (B)")
     plt.legend(loc="upper left")
-    plt.savefig(f"../../reports/report3/{title}.png")
+    plt.savefig(folder)
     plt.clf()
 
     # calculating bandwidth and latency
@@ -38,8 +38,27 @@ def benchmark(filename, title):
             f"Inter-node latency: {latency_diff_nodes:.2f} ms, bandwidth: {bandwidth_diff_nodes:.2f} GB/s"
     )
 
-print("--- Benchmark for point-to-point communication ---")
-benchmark("data/output_point_to_point.txt", "point-to-point")
+def benchmark_pi(filename, title, folder):
 
-print("--- Benchmark for one-sided communication ---")
-benchmark("data/output_one_sided.txt", "one-sided")
+    # reading from file
+    df = pd.read_csv(filename, sep=' ', header=None)
+    proc_num = df[0]
+    exec_time = df[1]
+
+    # plotting
+    plt.plot(proc_num, exec_time)
+    plt.title(f"PI benchmark - {title}")
+    plt.ylabel("Time (sec)")
+    plt.xlabel("Proc num")
+    plt.savefig(folder)
+    plt.clf()
+
+
+# print("--- Benchmark for point-to-point communication ---")
+# benchmark_ping_pong("data/output_point_to_point.txt", "point-to-point", "../../../reports/report3/figures")
+
+# print("--- Benchmark for one-sided communication ---")
+# benchmark_ping_pong("data/output_one_sided.txt", "one-sided", "../../../reports/report3/figures")
+
+# benchmark_pi("../data/output_pi_linear.txt", "blocking linear reduction", "../../../reports/report3/figures/linear_pi.png")
+benchmark_pi("../data/output_pi_binary.txt", "blocking binary tree reduction", "../../../reports/report3/figures/binary_pi.png")

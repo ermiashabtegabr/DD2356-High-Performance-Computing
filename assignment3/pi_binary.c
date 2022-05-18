@@ -37,27 +37,38 @@ int main(int argc, char* argv[])
 		if (z <= 1.0) local_count++;
 	}
 
+	int tree_height = log2(size) + 1;
 
-	if (rank == 0) {
-		int global_count = local_count;
 
-		for (i = 1; i < size; i++) {
-			int tmp;
-			MPI_Recv(&tmp, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-			global_count += tmp;
+	if (rank % 2 == 0) {
+		int tmp;
+		MPI_Recv(&tmp, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		local_count += tmp;
+
+		for (i = 1; i < tree_height - 1; i++) {
+			int remaining = pow(2, i);
+			int delegate = pow(2, (i+1));
+
+			if (rank % delegate == 0) {
+				MPI_Recv(&tmp, 1, MPI_INT, rank + remaining, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+				local_count += tmp;
+			} else {
+				MPI_Send(&local_count, 1, MPI_INT, rank - remaining, 0, MPI_COMM_WORLD);
+				break;
+			}
 		}
 
-		// Estimate Pi and display the result
-		pi = ((double)global_count / (double)NUM_ITER) * 4.0;
-
 	} else {
-		MPI_Send(&local_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+		MPI_Send(&local_count, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD);
 	}
 
 	stop_time = MPI_Wtime();
 	elapsed_time = stop_time - start_time;
 
 	if (rank == 0) {
+		// Estimate Pi and display the result
+		pi = ((double)local_count / (double)NUM_ITER) * 4.0;
+
 		printf("%d Processes - The result is %f\n", size, pi);
 		printf("Execution Time: %f\n", elapsed_time);
 	}

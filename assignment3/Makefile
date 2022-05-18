@@ -29,7 +29,10 @@ clean_one:
 
 pi_linear:
 	cc pi_linear.c -o pi_linear
-run_linear:
-	srun -n 8 ./pi_linear
 clean_linear:
 	rm pi_linear
+
+pi_binary:
+	cc pi_binary.c -o pi_binary
+clean_binary:
+	rm pi_binary
