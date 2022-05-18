@@ -42,3 +42,7 @@ linear_non:
 clean_linear_non:
 	rm pi_linear_non_blocking
 
+map:
+	cc pi_mpi_reduce.c -o pi_mpi_reduce
+clean_reduce:
+	rm pi_mpi_reduce

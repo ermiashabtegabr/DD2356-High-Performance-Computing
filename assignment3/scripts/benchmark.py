@@ -61,4 +61,6 @@ def benchmark_pi(filename, title, folder):
 # benchmark_ping_pong("data/output_one_sided.txt", "one-sided", "../../../reports/report3/figures")
 
 # benchmark_pi("../data/output_pi_linear.txt", "blocking linear reduction", "../../../reports/report3/figures/linear_pi.png")
-benchmark_pi("../data/output_pi_binary.txt", "blocking binary tree reduction", "../../../reports/report3/figures/binary_pi.png")
+# benchmark_pi("../data/output_pi_binary.txt", "blocking binary tree reduction", "../../../reports/report3/figures/binary_pi.png")
+benchmark_pi("../data/output_pi_linear_non_blocking.txt", "non-blocking linear reduction", "../../../reports/report3/figures/non_blocking_linear.png")
+
