@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 			forces_qk[X] = G * masses[q] * masses[k] / dist_cubed * x_diff;
 			forces_qk[Y] = G * masses[q] * masses[k] / dist_cubed * y_diff;
 			forces[q][X] += forces_qk[X];
-			forces[q][Y] += forces_qk[Y]; 
+			forces[q][Y] += forces_qk[Y];
 			forces[k][X] -= forces_qk[X];
 			forces[k][Y] -= forces_qk[Y];
 		}
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 					forces_qk[X] = G * masses[q] * masses[k] / dist_cubed * x_diff;
 					forces_qk[Y] = G * masses[q] * masses[k] / dist_cubed * y_diff;
 					forces[q][X] += forces_qk[X];
-					forces[q][Y] += forces_qk[Y]; 
+					forces[q][Y] += forces_qk[Y];
 					forces[k][X] -= forces_qk[X];
 					forces[k][Y] -= forces_qk[Y];
 				}
