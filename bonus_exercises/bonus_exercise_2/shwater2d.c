@@ -112,17 +112,18 @@ void laxf_scheme_2d(double *Q, double **ffx, double **ffy, double **nFx, double 
 void solver(double *Q, double **ffx, double **ffy, double **nFx, double **nFy,
 			int m, int n, double tend, double dx, double dy, double dt)
 {
-	double bc_mask[3] = {1.0, -1.0, -1.0};
-	double time;
-	int i, j, k, steps;
 
-	steps = ceil(tend / dt);
-#pragma omp parallel
+#pragma omp parallel shared(Q, m, n)
 	{
+		double time;
+		int i, j, k, steps;
+		double bc_mask[3] = {1.0, -1.0, -1.0};
+		steps = ceil(tend / dt);
+
 		for (i = 0, time = 0.0; i < steps; i++, time += dt)
 		{
-			/* Apply boundary condition */
 #pragma omp for
+			/* Apply boundary condition */
 			for (j = 1; j < n - 1; j++)
 			{
 				for (k = 0; k < cell_size; k++)
@@ -142,8 +143,12 @@ void solver(double *Q, double **ffx, double **ffy, double **nFx, double **nFy,
 				}
 			}
 
-			/* Update all volumes with the Lax-Friedrich's scheme */
-			laxf_scheme_2d(Q, ffx, ffy, nFx, nFy, m, n, dx, dy, dt);
+#pragma omp barrier
+#pragma omp master
+			{
+				/* Update all volumes with the Lax-Friedrich's scheme */
+				laxf_scheme_2d(Q, ffx, ffy, nFx, nFy, m, n, dx, dy, dt);
+			}
 		}
 	}
 }
