@@ -5,8 +5,8 @@
 #include <math.h>
 #include <mpi.h>
 
-#define N 16
-// #define DEBUG
+#define N 8
+#define DEBUG
 
 double rand_from(double min, double max)
 {
@@ -49,7 +49,7 @@ void get_submatrix(double **matrix, double **submatrix, int row, int col, int n)
 	int i, j;
 	for (i = 0; i < n; i++)
 		for (j = 0; j < n; j++)
-			submatrix[i][j] = matrix[i + col][j + row];
+			submatrix[i][j] = matrix[i + (row * n)][j + (col * n)];
 }
 
 void set_to_zero(double **matrix, int n)
@@ -60,14 +60,16 @@ void set_to_zero(double **matrix, int n)
 			matrix[i][j] = 0;
 }
 
-void calculate_local(double **temp_A, double **local_B, double **local_C, int n)
+void calculate_local(double **sub_A, double **sub_B, double **local_C, int n)
 {
 	int i, j, k;
 	for (i = 0; i < n; i++)
 		for (j = 0; j < n; j++)
 			for (k = 0; k < n; k++)
-				local_C[i][j] += temp_A[i][j] * local_B[j][k];
+				local_C[i][j] += sub_A[i][k] * sub_B[k][j];
 }
+
+
 
 int main(int argc, char *argv[])
 {
@@ -89,7 +91,7 @@ int main(int argc, char *argv[])
 	allocate_matrix(&B, N);
 	allocate_matrix(&C, N);
 
-	srand(time(NULL));
+	srand(100);
 	initialize_matrices(A, N, 1, 10);
 	initialize_matrices(B, N, 1, 10);
 
@@ -101,21 +103,6 @@ int main(int argc, char *argv[])
 	dims[0] = dims[1] = q;
 	periodic[0] = periodic[1] = 1;
 
-#ifdef DEBUG
-	if (rank == 0 && and dims <= 8)
-	{
-		printf("dims -> [%d, %d]\n", dims[0], dims[1]);
-		for (int d = 0; d < N; d++)
-		{
-			for (int d1 = 0; d1 < N; d1++)
-			{
-				printf("%f ", A[d][d1]);
-			}
-			printf("\n");
-		}
-	}
-#endif
-
 	MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periodic, 1, &comm_cart);
 	MPI_Comm_rank(comm_cart, &rank);
 	MPI_Cart_coords(comm_cart, rank, 2, coords);
@@ -126,7 +113,6 @@ int main(int argc, char *argv[])
 	belonging_coords[0] = 0;
 	belonging_coords[1] = 1;
 	MPI_Cart_sub(comm_cart, belonging_coords, &comm_row);
-
 	/* --------------------------- */
 
 	/* --- setting up local and temp matrices --- */
@@ -140,18 +126,48 @@ int main(int argc, char *argv[])
 	get_submatrix(A, local_A, my_row, my_col, submatrix_size);
 	get_submatrix(B, local_B, my_row, my_col, submatrix_size);
 
+#ifdef DEBUG
+	if (rank == 0){
+		printf("------------- %d A matrix --------------\n", rank);
+		for (int i = 0; i < N; i++) {
+			for (int j = 0; j < N; j++) {
+				printf("%f ", A[i][j]);
+			}
+			printf("\n");
+		}	
+		printf("----------------------------------\n");
+
+		printf("------------- %d B matrix --------------\n", rank);
+		for (int i = 0; i < N; i++) {
+			for (int j = 0; j < N; j++) {
+				printf("%f ", B[i][j]);
+			}
+			printf("\n");
+		}	
+		printf("----------------------------------\n");
+
+		printf("----------- rank ==  %d --------------\n", rank);
+		for (int i = 0; i < submatrix_size; i++) {
+			for (int j = 0; j < submatrix_size; j++) {
+				printf("%f ", local_B[i][j]);
+			}
+			printf("\n");
+		}	
+		printf("--------------------------------------\n");
+	}
+
+#endif
+
 	int step, bcast_root, src, dst, up_rank, down_rank;
 	MPI_Status status;
 
 	set_to_zero(local_C, submatrix_size);
-
 	MPI_Cart_shift(comm_cart, 0, 1, &up_rank, &down_rank);
-
 	allocate_matrix(&temp_A, submatrix_size);
 	/* ------------------------------------------ */
-
+	
 	/* --- fox algorithm --- */
-	for (step = 0; step < q; step++)
+	for (step = 0; step < q; step ++) 
 	{
 		bcast_root = (my_row + step) % q;
 		if (bcast_root == my_col)
@@ -159,32 +175,97 @@ int main(int argc, char *argv[])
 #ifdef DEBUG
 			printf("rank: %d - step: %d - coords: (%d, %d) broadcasting\n", rank, step, my_row, my_col);
 #endif
-			MPI_Bcast(local_A, submatrix_size * submatrix_size, MPI_DOUBLE, bcast_root, comm_row);
+			//printf("------------- step: %d - %d broadcasting local_A -------------\n", step, rank);
+			//for (int i = 0; i < submatrix_size; i++) {
+			//	for (int j = 0; j < submatrix_size; j++) {
+			//		printf("%f ", local_A[i][j]);
+			//	}
+			//	printf("\n");
+			//}
+			//printf("--------------------------------------------------------------\n");
+
+			for (int i = 0; i < submatrix_size; i++) 
+				MPI_Bcast(local_A[i], submatrix_size, MPI_DOUBLE, bcast_root, comm_row);
+
 			calculate_local(local_A, local_B, local_C, submatrix_size);
-		}
+		} 
 		else
 		{
+
 #ifdef DEBUG
 			printf("rank: %d - step: %d - coords: (%d, %d) receiving\n", rank, step, my_row, my_col);
 #endif
-			MPI_Bcast(temp_A, submatrix_size * submatrix_size, MPI_DOUBLE, bcast_root, comm_row);
+			for (int j = 0; j < submatrix_size; j++)
+				MPI_Bcast(temp_A[j], submatrix_size, MPI_DOUBLE, bcast_root, comm_row);
+
+			//printf("------------- step: %d - %d received local_A -------------\n", step, rank);
+			//for (int i = 0; i < submatrix_size; i++) {
+			//	for (int j = 0; j < submatrix_size; j++) {
+			//		printf("%f ", temp_A[i][j]);
+			//	}
+			//	printf("\n");
+			//}
+			//printf("----------------------------------------------------------\n");
+
 			calculate_local(temp_A, local_B, local_C, submatrix_size);
 		}
+
 #ifdef DEBUG
-		printf("rank: %d - step: %d - coords: (%d, %d) - sending to: %d - receiving from: %d\n", rank, step, my_row, my_col, up_rank, down_rank);
+		if (step == q - 1) 
+		{
+			printf("rank: %d - step: %d - coords: (%d, %d) - sending to: %d - receiving from: %d\n", rank, step, my_row, my_col, up_rank, down_rank);
+			printf("------------- %d local B before sending -------------\n", rank);
+			for (int i = 0; i < submatrix_size; i++) {
+				for (int j = 0; j < submatrix_size; j++) {
+					printf("%f ", local_B[i][j]);
+				}
+				printf("\n");
+			}
+			printf("-----------------------------------------------------\n");
+
+			for (int i = 0; i < submatrix_size; i++)
+			{
+				MPI_Sendrecv_replace(local_B[i], submatrix_size, MPI_DOUBLE, up_rank, 0, down_rank, 0, MPI_COMM_WORLD, &status);
+			}
+
+			printf("------------- %d local B after sending -------------\n", rank);
+			for (int i = 0; i < submatrix_size; i++) {
+				for (int j = 0; j < submatrix_size; j++) {
+					printf("%f ", local_B[i][j]);
+				}
+				printf("\n");
+			}
+			printf("-----------------------------------------------------\n");
+		}
 #endif
-		MPI_Sendrecv_replace(local_B, submatrix_size * submatrix_size, MPI_DOUBLE, up_rank, 0, down_rank, 0, MPI_COMM_WORLD, &status);
 	}
 
-	/* --------------------- */
+	printf("---------------- Rank: %d result ---------------\n", rank);
+	for (int i = 0; i < submatrix_size; i++)
+	{
+		for (int j = 0; j < submatrix_size; j++)
+		{
+			printf("%f ", local_C[i][j]);
+		}
+		printf("\n");
+	}
+	printf("------------------------------------------------\n");
 
-	// free_allocated_matrix(temp_A, N);
-	// free_allocated_matrix(local_A, N);
-	// free_allocated_matrix(local_B, N);
-	// free_allocated_matrix(local_C, N);
-	// free_allocated_matrix(A, N);
-	// free_allocated_matrix(B, N);
-	// free_allocated_matrix(C, N);
+	if (rank == 0)
+	{
+		printf("---------------- Sequential resut ---------------\n");
+		calculate_local(A, B, C, N);
+		for (int i = 0; i < N; i++)
+		{
+			for (int j = 0; j < N; j++)
+			{
+				printf("%2f ", C[i][j]);
+			}
+			printf("\n");
+		}
+		printf("-------------------------------------------------\n");
+	}
+	 
 
 	return 0;
 }
