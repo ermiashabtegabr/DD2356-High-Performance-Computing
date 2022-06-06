@@ -8,7 +8,7 @@
 #define N 8
 #define TRUE 1
 #define FALSE -1
-#define DEBUG
+//#define DEBUG
 
 double rand_from(double min, double max)
 {
@@ -62,7 +62,7 @@ void set_to_zero(double **matrix, int n)
 			matrix[i][j] = 0;
 }
 
-void calculate_local(double **sub_A, double **sub_B, double **local_C, int n)
+void calculate_local(double **sub_A, double **sub_B, double **local_C, int n, int rank)
 {
 	int i, j, k;
 	for (i = 0; i < n; i++)
@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
 	get_submatrix(B, local_B, my_row, my_col, submatrix_size);
 
 #ifdef DEBUG
-	if (rank == 0 && dims <= 8)
+	if (rank == 0)
 	{
 		printf("------------- %d A matrix --------------\n", rank);
 		for (int i = 0; i < N; i++)
@@ -153,8 +153,7 @@ int main(int argc, char *argv[])
 			}
 			printf("\n");
 		}
-		printf("----------------------------------\n");
-
+		printf("----------------------------------------\n");
 		printf("------------- %d B matrix --------------\n", rank);
 		for (int i = 0; i < N; i++)
 		{
@@ -164,20 +163,8 @@ int main(int argc, char *argv[])
 			}
 			printf("\n");
 		}
-		printf("----------------------------------\n");
-
-		printf("----------- rank ==  %d --------------\n", rank);
-		for (int i = 0; i < submatrix_size; i++)
-		{
-			for (int j = 0; j < submatrix_size; j++)
-			{
-				printf("%f ", local_B[i][j]);
-			}
-			printf("\n");
-		}
-		printf("--------------------------------------\n");
+		printf("----------------------------------------\n");
 	}
-
 #endif
 
 	int step, bcast_root, src, dst, up_rank, down_rank;
@@ -191,6 +178,7 @@ int main(int argc, char *argv[])
 	/* --- fox algorithm --- */
 	for (step = 0; step < q; step++)
 	{
+
 		bcast_root = (my_row + step) % q;
 		if (bcast_root == my_col)
 		{
@@ -210,7 +198,19 @@ int main(int argc, char *argv[])
 			for (int i = 0; i < submatrix_size; i++)
 				MPI_Bcast(local_A[i], submatrix_size, MPI_DOUBLE, bcast_root, comm_row);
 
-			calculate_local(local_A, local_B, local_C, submatrix_size);
+			calculate_local(local_A, local_B, local_C, submatrix_size, rank);
+#ifdef DEBUG
+			printf("------------- step: %d - %d current local_C -------------\n", step, rank);
+			for (int i = 0; i < submatrix_size; i++) 
+			{
+				for (int j = 0; j < submatrix_size; j++) 
+				{
+					printf("%f ", local_C[i][j]);
+				}
+				printf("\n");
+			}
+			printf("---------------------------------------------------------\n");
+#endif
 		}
 		else
 		{
@@ -234,10 +234,11 @@ int main(int argc, char *argv[])
 			printf("----------------------------------------------------------\n");
 #endif
 
-			calculate_local(temp_A, local_B, local_C, submatrix_size);
+			calculate_local(temp_A, local_B, local_C, submatrix_size, rank);
+
 		}
 
-		if (step == q - 1)
+		if (step != q - 1)
 		{
 
 #ifdef DEBUG
@@ -255,12 +256,10 @@ int main(int argc, char *argv[])
 #endif
 
 			for (int i = 0; i < submatrix_size; i++)
-			{
 				MPI_Sendrecv_replace(local_B[i], submatrix_size, MPI_DOUBLE, up_rank, 0, down_rank, 0, MPI_COMM_WORLD, &status);
-			}
 
 #ifdef DEBUG
-			printf("------------- %d local B after sending -------------\n", rank);
+			printf("------------- %d local B after sending step: %d -------------\n", rank, step);
 			for (int i = 0; i < submatrix_size; i++)
 			{
 				for (int j = 0; j < submatrix_size; j++)
@@ -269,12 +268,14 @@ int main(int argc, char *argv[])
 				}
 				printf("\n");
 			}
-			printf("-----------------------------------------------------\n");
+			printf("-------------------------------------------------------------\n");
 #endif
+
+
 		}
 	}
 
-	calculate_local(A, B, C, N);
+	calculate_local(A, B, C, N, rank);
 	if (!compare_to_sequential_result(local_C, C, my_row, my_col, submatrix_size))
 	{
 		printf("Rank: %d - matrix product not correct\n", rank);
@@ -283,33 +284,6 @@ int main(int argc, char *argv[])
 	{
 		printf("Rank: %d - matrix product correct\n", rank);
 	}
-
-#ifdef DEBUG
-	printf("---------------- Rank: %d result ---------------\n", rank);
-	for (int i = 0; i < submatrix_size; i++)
-	{
-		for (int j = 0; j < submatrix_size; j++)
-		{
-			printf("%f ", local_C[i][j]);
-		}
-		printf("\n");
-	}
-	printf("------------------------------------------------\n");
-
-	if (rank == 0)
-	{
-		printf("---------------- Sequential result ---------------\n");
-		for (int i = 0; i < N; i++)
-		{
-			for (int j = 0; j < N; j++)
-			{
-				printf("%2f ", C[i][j]);
-			}
-			printf("\n");
-		}
-		printf("-------------------------------------------------\n");
-	}
-#endif
 
 	return 0;
 }
