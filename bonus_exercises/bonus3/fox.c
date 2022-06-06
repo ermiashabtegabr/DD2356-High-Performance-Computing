@@ -176,6 +176,11 @@ int main(int argc, char *argv[])
 	/* ------------------------------------------ */
 
 	/* --- fox algorithm --- */
+	double start_time, end_time;
+
+	MPI_Barrier(MPI_COMM_WORLD);
+	start_time = MPI_Wtime();
+
 	for (step = 0; step < q; step++)
 	{
 
@@ -270,10 +275,11 @@ int main(int argc, char *argv[])
 			}
 			printf("-------------------------------------------------------------\n");
 #endif
-
-
 		}
 	}
+
+	MPI_Barrier(MPI_COMM_WORLD);
+	end_time = MPI_Wtime();
 
 	calculate_local(A, B, C, N, rank);
 	if (!compare_to_sequential_result(local_C, C, my_row, my_col, submatrix_size))
@@ -284,6 +290,9 @@ int main(int argc, char *argv[])
 	{
 		printf("Rank: %d - matrix product correct\n", rank);
 	}
+
+	MPI_Finalize();
+	if (rank == 0) printf("Elapsed time %f\n", end_time - start_time);
 
 	return 0;
 }
